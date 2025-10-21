@@ -254,7 +254,106 @@ public class EvaluatorTest {
         assertEquals(13, ExpressionEvaluator.evaluate(" 12 - 3 + 4 ")); // whitespace should be ignored
     }
 
+    @DisplayName("Unary negation: simple literals")
+    @Test
+    public void testUnarySimple() throws MalformedExpressionException {
+        assertEquals(-5, ExpressionEvaluator.evaluate("-5"));
+        assertEquals(0,  ExpressionEvaluator.evaluate("-0"));
+    }
 
+    @DisplayName("Unary negation with parentheses")
+    @Test
+    public void testUnaryWithParens() throws MalformedExpressionException {
+        assertEquals(-5, ExpressionEvaluator.evaluate("(-5)"));
+        assertEquals(-5, ExpressionEvaluator.evaluate("-(3+2)"));
+        assertEquals(-6, ExpressionEvaluator.evaluate("-(2*3)"));
+        assertEquals(6,  ExpressionEvaluator.evaluate("--(2*3)"));
+    }
 
+    @DisplayName("Unary negation binds tighter than * and +")
+    @Test
+    public void testUnaryPrecedence() throws MalformedExpressionException {
+        // (-2)*3 and 2*(-3)
+        assertEquals(-6, ExpressionEvaluator.evaluate("-2*3"));
+        assertEquals(-6, ExpressionEvaluator.evaluate("2*-3"));
+        // plus with unary minus
+        assertEquals(-2, ExpressionEvaluator.evaluate("3+-5"));
+        // multiply by -1 pattern
+        assertEquals(-5, ExpressionEvaluator.evaluate("5*-1"));
+    }
+
+    @DisplayName("Multiple consecutive unary minuses")
+    @Test
+    public void testMultipleUnary() throws MalformedExpressionException {
+        assertEquals(5,   ExpressionEvaluator.evaluate("--5"));     // --5 = 5
+        assertEquals(-5,  ExpressionEvaluator.evaluate("---5"));    // ---5 = -5
+        assertEquals(8,   ExpressionEvaluator.evaluate("5--3"));    // 5 - (-3)
+        assertEquals(2,   ExpressionEvaluator.evaluate("5---3"));   // 5 - (+3)
+        assertEquals(5,  ExpressionEvaluator.evaluate("10---5"));  // 10 - (5)
+        assertEquals(15,   ExpressionEvaluator.evaluate("10----5")); // 10 - (-5)
+    }
+
+    @DisplayName("Whitespace with unary negation")
+    @Test
+    public void testUnaryWhitespace() throws MalformedExpressionException {
+        assertEquals(-12, ExpressionEvaluator.evaluate("- 12"));
+        assertEquals(-5,  ExpressionEvaluator.evaluate("- ( 3 + 2 )"));
+        assertEquals(-5,  ExpressionEvaluator.evaluate("5* - 1"));
+    }
+
+    @DisplayName("Unary negation: malformed inputs remain malformed")
+    @Test
+    public void testUnaryMalformedStillThrows() {
+        assertThrows(MalformedExpressionException.class, () -> ExpressionEvaluator.evaluate("-)"));
+        assertThrows(MalformedExpressionException.class, () -> ExpressionEvaluator.evaluate("3*-"));
+        assertThrows(MalformedExpressionException.class, () -> ExpressionEvaluator.evaluate("-(3+)"));
+    }
+
+    @DisplayName("Implicit multiplication: ')(' between parenthesized groups")
+    @Test
+    public void testImplicitMult_ParenParen() throws MalformedExpressionException {
+        assertEquals(12, ExpressionEvaluator.evaluate("(3)(4)"));
+        assertEquals(21, ExpressionEvaluator.evaluate("(2+1)(3+4)"));
+    }
+
+    @DisplayName("Implicit multiplication: number followed by '('")
+    @Test
+    public void testImplicitMult_NumberBeforeParen() throws MalformedExpressionException {
+        assertEquals(25, ExpressionEvaluator.evaluate("5(2+3)"));
+        assertEquals(36, ExpressionEvaluator.evaluate("12(3)"));
+    }
+
+    @DisplayName("Implicit multiplication: ')' followed by number")
+    @Test
+    public void testImplicitMult_ParenBeforeNumber() throws MalformedExpressionException {
+        assertEquals(9,  ExpressionEvaluator.evaluate("(1+2)3"));
+        assertEquals(50, ExpressionEvaluator.evaluate("(2+3)10"));
+    }
+
+    @DisplayName("Implicit multiplication mixes with explicit '*' and respects precedence")
+    @Test
+    public void testImplicitMult_MixedWithExplicit() throws MalformedExpressionException {
+        // Same as 2*(3+4)*5 from earlier tests
+        assertEquals(70, ExpressionEvaluator.evaluate("2(3+4)5"));
+        // Same as (2+3)*(4+5)
+        assertEquals(45, ExpressionEvaluator.evaluate("(2+3)(4+5)"));
+        // Addition should not bind tighter than implicit '*'
+        assertEquals(14, ExpressionEvaluator.evaluate("2+3(4)")); // 2 + (3*4)
+    }
+
+    @DisplayName("Implicit multiplication with unary negation (from 2.6)")
+    @Test
+    public void testImplicitMult_WithUnary() throws MalformedExpressionException {
+        assertEquals(-20, ExpressionEvaluator.evaluate("-(2+3)4")); // (-1)*(2+3)*4
+        assertEquals(6,   ExpressionEvaluator.evaluate("(-2)(-3)"));
+        assertEquals(-6,  ExpressionEvaluator.evaluate("-2(3)"));
+    }
+
+    @DisplayName("Implicit multiplication with whitespace (integration with 2.4)")
+    @Test
+    public void testImplicitMult_WithWhitespace() throws MalformedExpressionException {
+        assertEquals(14, ExpressionEvaluator.evaluate("2 + 3 ( 4 )"));     // 2 + 3*4
+        assertEquals(70, ExpressionEvaluator.evaluate(" 2 ( 3 + 4 ) 5 ")); // 2*(3+4)*5
+    }
 
 }

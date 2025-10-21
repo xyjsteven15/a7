@@ -15,28 +15,32 @@ public class ExpressionEvaluator {
      */
     public static int evaluate(String expr) throws MalformedExpressionException{
         Stack<Integer> operands = new LinkedStack<>();
+        Stack<Character> temp = new LinkedStack<>();
         Stack<Character> operators = new LinkedStack<>(); // invariant: contains only '(', '+', '-' and '*'
         if (expr .equals("")) throw new MalformedExpressionException("the string sould not be empty");
         boolean expectingOperator = false; // in infix notation, the first operand comes before an operator
         boolean isNum = false;
         boolean isSpace = false;
         boolean unary = false;
-        boolean doNotPush = false;
             for (char c : expr.toCharArray()) {// arrays are Iterable, so can be used in enhanced-for loops
             if (c == ' '){
                 isSpace = true;
             }
             else if (c == '(') {
-                if (expectingOperator) throw new MalformedExpressionException("'(' cannot follow an operand");
-                // assert !expectingOperator : "'(' cannot follow an operand";
                 if (unary){
-                    operators.pop();
                     operands.push(-1);
                     operators.push('*');
                 }
-                operators.push('(');
+                // if (expectingOperator) throw new MalformedExpressionException("'(' cannot follow an operand");
+                // assert !expectingOperator : "'(' cannot follow an operand";
+                if(!temp.isEmpty()){
+                    operators.push('*');
+                    temp.pop();
+                }
                 isSpace = false;
+                isNum = false;
                 unary = false;
+                operators.push('(');
             } else if (c == '*') {
                 if (unary)
                     throw new MalformedExpressionException("'-' must follow an operand, not an operator");
@@ -49,6 +53,8 @@ public class ExpressionEvaluator {
                 expectingOperator = false;
                 isNum = false;
                 isSpace = false;
+                while(!temp.isEmpty())
+                    temp.pop();
             } else if (c == '+') {
                 if (unary)
                     throw new MalformedExpressionException("'-' must follow an operand, not an operator");
@@ -62,28 +68,32 @@ public class ExpressionEvaluator {
                 expectingOperator = false;
                 isNum = false;
                 isSpace = false;
+                while(!temp.isEmpty())
+                    temp.pop();
             } else if (c == '-'){
-                if (unary)
-                    doNotPush = true;
-                if (!expectingOperator){
-                    unary = true;}
-//                    throw new MalformedExpressionException("'-' must follow an operand, not an operator");
-//                assert expectingOperator : "'-' must follow an operand, not an operator";
-                while (!operators.isEmpty() && (operators.peek() == '*'
-                        || operators.peek() == '+'|| operators.peek() == '-')) {
-                    oneStepSimplify(operands, operators);
+                if (unary){
+                    operands.push(-1);
+                    operators.push('*');
                 }
-                operators.push('-');
+                if (!expectingOperator)
+                    unary = true;
+                if (!unary){
+                    while (!operators.isEmpty() && (operators.peek() == '*'
+                            || operators.peek() == '+'|| operators.peek() == '-')) {
+                        oneStepSimplify(operands, operators);
+                    }
+                    operators.push('-');
+                }
+
+
+                    //throw new MalformedExpressionException("'-' must follow an operand, not an operator");
+//                assert expectingOperator : "'-' must follow an operand, not an operator";
+
                 expectingOperator = false;
                 isNum = false;
                 isSpace = false;
-                unary = true;
-                //应对error 要是第一个是负号的case;应对push多个负号
-                //after the unary true, so this happens just to prevent multiple '-' in the stack
-                if (doNotPush){
-                    operators.pop();
-                    doNotPush = false;
-                }
+                if(!temp.isEmpty())
+                    temp.pop();
             }
             else if (c == ')') {
                 if (unary)
@@ -100,15 +110,26 @@ public class ExpressionEvaluator {
                 operators.pop(); // remove '('
                 isNum = false;
                 isSpace = false;
+                temp.push(')');
+
             } else { // c is a digit
                 if (!(c >= '0' && c <= '9')) throw new MalformedExpressionException("expression contains an illegal character");
 //                assert c >= '0' && c <= '9' : "expression contains an illegal character";
                 //when the previous operator is '-', means -1 * the later operand
                 if (unary){
-                    operators.pop();
                     operands.push(-1);
                     operators.push('*');
                 }
+
+                if(!temp.isEmpty()) {
+                    if (temp.peek() == ')') {
+                        operators.push('*');
+                        temp.pop();
+                    } else if (temp.peek()=='0') {
+                        temp.pop();
+                    }
+                }
+
                 if(isNum){
                     if(isSpace) throw new MalformedExpressionException("expression contains space between numbers");
                     operands.push((c - '0')+operands.pop()*10);
@@ -118,6 +139,8 @@ public class ExpressionEvaluator {
                 unary = false;
                 isNum = true;
                 isSpace = false;
+                temp.push('0');
+
             }
         }
         if (!expectingOperator) throw new MalformedExpressionException("expression must end with an operand, not an operator");
@@ -148,6 +171,7 @@ public class ExpressionEvaluator {
         assert op == '+' || op == '*' || op == '-';
 
         int o2 = operands.pop(); // second operand is higher on stack
+//        System.out.println(o2+"is o2");o2
         int o1 = operands.pop();
         if (op == '+')
             operands.push(o1 + o2);
