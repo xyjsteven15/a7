@@ -355,5 +355,5 @@ public class EvaluatorTest {
         assertEquals(14, ExpressionEvaluator.evaluate("2 + 3 ( 4 )"));     // 2 + 3*4
         assertEquals(70, ExpressionEvaluator.evaluate(" 2 ( 3 + 4 ) 5 ")); // 2*(3+4)*5
     }
-
+    
 }
