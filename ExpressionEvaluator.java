@@ -10,39 +10,43 @@ public class ExpressionEvaluator {
      * - Single-digit int literals
      * - Addition
      * - Multiplication
-     * - Subtranction
+     * - Subtraction
      * - Parentheses
      */
+    private enum Prev { NONE, NUMBER, RPAREN, OP }
     public static int evaluate(String expr) throws MalformedExpressionException{
         Stack<Integer> operands = new LinkedStack<>();
-        Stack<Character> temp = new LinkedStack<>();
         Stack<Character> operators = new LinkedStack<>(); // invariant: contains only '(', '+', '-' and '*'
         if (expr .equals("")) throw new MalformedExpressionException("the string sould not be empty");
         boolean expectingOperator = false; // in infix notation, the first operand comes before an operator
         boolean isNum = false;
         boolean isSpace = false;
-        boolean unary = false;
+//        boolean unary = false;
+        int unarySign = 1;
+        Prev prev = Prev.OP;
             for (char c : expr.toCharArray()) {// arrays are Iterable, so can be used in enhanced-for loops
             if (c == ' '){
                 isSpace = true;
+                continue;
             }
             else if (c == '(') {
-                if (unary){
+                if (prev == Prev.NUMBER || prev == Prev.RPAREN){
+                    pushImplicitMultiply(operands, operators);
+                }
+                if (unarySign == -1){
                     operands.push(-1);
                     operators.push('*');
+                    unarySign = 1;
                 }
                 // if (expectingOperator) throw new MalformedExpressionException("'(' cannot follow an operand");
                 // assert !expectingOperator : "'(' cannot follow an operand";
-                if(!temp.isEmpty()){
-                    operators.push('*');
-                    temp.pop();
-                }
+                expectingOperator = false;
                 isSpace = false;
                 isNum = false;
-                unary = false;
                 operators.push('(');
+                prev = Prev.OP;
             } else if (c == '*') {
-                if (unary)
+                if (unarySign == -1)
                     throw new MalformedExpressionException("'-' must follow an operand, not an operator");
                 if (!expectingOperator) throw new MalformedExpressionException("'*' must follow an operand, not an operator");
 //                assert expectingOperator : "'*' must follow an operand, not an operator";
@@ -53,11 +57,9 @@ public class ExpressionEvaluator {
                 expectingOperator = false;
                 isNum = false;
                 isSpace = false;
-                while(!temp.isEmpty())
-                    temp.pop();
+                prev = Prev.OP;
             } else if (c == '+') {
-                if (unary)
-                    throw new MalformedExpressionException("'-' must follow an operand, not an operator");
+                if (unarySign == -1) throw new MalformedExpressionException("'-' must follow an operand, not an operator");
                 if (!expectingOperator) throw new MalformedExpressionException("'+' must follow an operand, not an operator");
 //                assert expectingOperator : "'+' must follow an operand, not an operator";
                 while (!operators.isEmpty() && (operators.peek() == '*'
@@ -68,36 +70,28 @@ public class ExpressionEvaluator {
                 expectingOperator = false;
                 isNum = false;
                 isSpace = false;
-                while(!temp.isEmpty())
-                    temp.pop();
+                prev = Prev.OP;
             } else if (c == '-'){
-                if (unary){
-                    operands.push(-1);
-                    operators.push('*');
+                if (!expectingOperator) {
+                    unarySign *= -1;
+                    isNum = false;
+                    isSpace = false;
+                    prev = Prev.OP;
+                    continue;
                 }
-                if (!expectingOperator)
-                    unary = true;
-                if (!unary){
-                    while (!operators.isEmpty() && (operators.peek() == '*'
-                            || operators.peek() == '+'|| operators.peek() == '-')) {
-                        oneStepSimplify(operands, operators);
-                    }
-                    operators.push('-');
+                while (!operators.isEmpty()
+                        && (operators.peek() == '*' || operators.peek() == '+'|| operators.peek() == '-')) {
+                    oneStepSimplify(operands, operators);
                 }
-
-
-                    //throw new MalformedExpressionException("'-' must follow an operand, not an operator");
-//                assert expectingOperator : "'-' must follow an operand, not an operator";
-
+                operators.push('-');
+                //throw new MalformedExpressionException("'-' must follow an operand, not an operator");
+                //assert expectingOperator : "'-' must follow an operand, not an operator";
                 expectingOperator = false;
                 isNum = false;
                 isSpace = false;
-                if(!temp.isEmpty())
-                    temp.pop();
-            }
-            else if (c == ')') {
-                if (unary)
-                    throw new MalformedExpressionException("'-' must follow an operand, not an operator");
+                prev = Prev.OP;
+            }else if (c == ')') {
+                if (unarySign == -1) throw new MalformedExpressionException("'-' must follow an operand, not an operator");
                 if (!expectingOperator) throw new MalformedExpressionException("')' must follow an operand, not an operator");
 //                assert expectingOperator : "')' must follow an operand, not an operator";
                 if (operators.isEmpty()) throw new MalformedExpressionException("mismatched parentheses, extra ')'");
@@ -108,26 +102,22 @@ public class ExpressionEvaluator {
 //                    assert !operators.isEmpty() : "mismatched parentheses, extra ')'";
                 }
                 operators.pop(); // remove '('
+                prev = Prev.RPAREN;
+                expectingOperator = true;
                 isNum = false;
                 isSpace = false;
-                temp.push(')');
 
             } else { // c is a digit
+                if (prev == Prev.RPAREN) {
+                    pushImplicitMultiply(operands, operators);
+                }
                 if (!(c >= '0' && c <= '9')) throw new MalformedExpressionException("expression contains an illegal character");
 //                assert c >= '0' && c <= '9' : "expression contains an illegal character";
                 //when the previous operator is '-', means -1 * the later operand
-                if (unary){
+                if (unarySign == -1) {
                     operands.push(-1);
                     operators.push('*');
-                }
-
-                if(!temp.isEmpty()) {
-                    if (temp.peek() == ')') {
-                        operators.push('*');
-                        temp.pop();
-                    } else if (temp.peek()=='0') {
-                        temp.pop();
-                    }
+                    unarySign = 1;
                 }
 
                 if(isNum){
@@ -136,11 +126,9 @@ public class ExpressionEvaluator {
                 }
                 else operands.push(c - '0'); // convert c to an int and auto-box
                 expectingOperator = true;
-                unary = false;
                 isNum = true;
                 isSpace = false;
-                temp.push('0');
-
+                prev = Prev.NUMBER;
             }
         }
         if (!expectingOperator) throw new MalformedExpressionException("expression must end with an operand, not an operator");
@@ -180,7 +168,12 @@ public class ExpressionEvaluator {
         else
             operands.push(o1 - o2);
     }
-
+     private static void pushImplicitMultiply(Stack<Integer> operands, Stack<Character> operators){
+         while (!operators.isEmpty() && operators.peek() == '*') {
+             oneStepSimplify(operands, operators);
+         }
+         operators.push('*');
+    }
 
     /**
      * A very basic calculator application.

@@ -355,5 +355,24 @@ public class EvaluatorTest {
         assertEquals(14, ExpressionEvaluator.evaluate("2 + 3 ( 4 )"));     // 2 + 3*4
         assertEquals(70, ExpressionEvaluator.evaluate(" 2 ( 3 + 4 ) 5 ")); // 2*(3+4)*5
     }
-    
+
+    @DisplayName("Implicit: ) followed by unary-number")
+    @Test
+    void implicitRightUnary() throws Exception {
+        assertEquals(-6, ExpressionEvaluator.evaluate("(2)(-3)"));
+        assertEquals(-6, ExpressionEvaluator.evaluate("(-2)(3)"));
+        assertEquals(-6, ExpressionEvaluator.evaluate("(-2)3"));     // ) number
+    }
+    @DisplayName("Implicit with double unary before group")
+    @Test
+    void implicitWithDoubleUnary() throws Exception {
+        assertEquals(20, ExpressionEvaluator.evaluate("--(2+3)4"));  // (+1)*(2+3)*4
+    }
+
+    @DisplayName("Multiple implicit boundaries including nested groups")
+    @Test
+    void multipleImplicitBoundaries() throws Exception {
+        assertEquals(24, ExpressionEvaluator.evaluate("2(3)(4)"));     // already have coverage, keep one more
+        assertEquals(7, ExpressionEvaluator.evaluate("((1))(3+(4))")); // )(
+    }
 }
